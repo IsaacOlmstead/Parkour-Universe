@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parkour Universe: Seeded Levels, Space Worlds, Build Mode</title>
+<style>
+  :root { --panel:#10152c; --line:#2d3f78; --acc:#6ff; --gold:#ffd54a; }
+  * { box-sizing: border-box; }
+  body { margin:0; overflow:hidden; font-family:system-ui,-apple-system,Segoe UI,sans-serif; background:#000; color:#fff; }
+  #overlay { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    background:rgba(0,0,0,.6); cursor:pointer; text-align:center; z-index:10; }
+  #overlay h1 { margin:0; font-size:28px; }
+  #overlay p { margin:0; opacity:.85; }
+  #hud { position:fixed; top:12px; left:12px; z-index:5; text-shadow:0 1px 4px #000; pointer-events:none; line-height:1.5; max-width:70vw; }
+  #hud .level { font-size:20px; font-weight:bold; }
+  #hud .turbo { font-weight:bold; }
+  #codeBadge { position:fixed; top:12px; right:12px; z-index:5; pointer-events:none; text-shadow:0 1px 4px #000; text-align:right; opacity:.9; }
+  #cross { position:fixed; left:50%; top:50%; width:20px; height:20px; margin:-10px 0 0 -10px; z-index:5; pointer-events:none; display:none; }
+  #cross:before, #cross:after { content:""; position:absolute; background:#fff; box-shadow:0 0 3px #000; }
+  #cross:before { left:9px; top:0; width:2px; height:20px; }
+  #cross:after { top:9px; left:0; height:2px; width:20px; }
+  #buildBar { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); display:none; gap:6px; z-index:6; pointer-events:none; }
+  .slot { width:50px; height:50px; border:2px solid #fff5; border-radius:8px; font-size:12px; padding:2px 5px; display:flex; align-items:flex-end; text-shadow:0 1px 3px #000; }
+  .slot.sel { border-color:var(--gold); box-shadow:0 0 12px var(--gold); transform:translateY(-4px); }
+  #banner { position:fixed; top:28%; left:0; right:0; text-align:center; color:var(--gold); font-size:44px; font-weight:bold; z-index:6;
+    text-shadow:0 2px 8px #000; pointer-events:none; opacity:0; transition:opacity .4s; padding:0 20px; }
+  #banner small { display:block; font-size:19px; color:#fff; margin-top:8px; font-weight:normal; }
+  #toast { position:fixed; bottom:16px; right:16px; z-index:50; background:#10152ccc; border:1px solid var(--line); padding:8px 14px; border-radius:8px;
+    opacity:0; transition:opacity .3s; pointer-events:none; font-size:14px; }
+  #menu { position:fixed; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(3,6,18,.72); }
+  .mpanel { width:min(1000px,96vw); height:min(760px,92vh); display:flex; flex-direction:column; border:2px solid var(--line); border-radius:16px;
+    background:var(--panel); box-shadow:0 0 70px #2a6bff55; overflow:hidden; }
+  .mhead { display:flex; align-items:center; gap:14px; padding:12px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .mtitle { font-weight:800; letter-spacing:2px; color:var(--acc); }
+  #tabs { display:flex; gap:6px; flex:1; flex-wrap:wrap; }
+  .tab, .mx, .btn { background:#1c2850; color:#fff; border:1px solid #4a63a8; border-radius:8px; padding:8px 14px; cursor:pointer; font-size:14px; }
+  .tab:hover, .mx:hover, .btn:hover { background:#2a3d78; }
+  .tab.on { background:#2f5bd8; border-color:#8fb0ff; }
+  .btn.gold { background:#8a6a10; border-color:var(--gold); }
+  .btn.red { background:#702030; border-color:#d46; }
+  #menuBody { flex:1; overflow:auto; padding:16px; }
+  #menuFoot { padding:8px 16px; border-top:1px solid var(--line); font-size:12px; opacity:.75; }
+  .hint { opacity:.75; font-size:13px; margin:0 0 10px; line-height:1.5; }
+  .lgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr)); gap:8px; }
+  .lbtn { background:#16204a; color:#fff; border:2px solid #4a63a8; border-radius:8px; padding:6px 2px; cursor:pointer; display:flex; flex-direction:column; align-items:center; }
+  .lbtn span { font-weight:700; font-size:16px; } .lbtn small { font-size:10px; opacity:.7; }
+  .lbtn:hover { background:#25357a; } .lbtn.done { background:#154a2a; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  input[type=text] { background:#0a0e20; color:#fff; border:1px solid #4a63a8; border-radius:8px; padding:10px 12px; font-size:18px; width:min(360px,100%); letter-spacing:2px; }
+  .preview { margin:8px 0 14px; padding:10px 12px; background:#0a0e20; border-radius:8px; border:1px solid #2d3f78; min-height:44px; }
+  table.types { border-collapse:collapse; width:100%; font-size:13px; }
+  table.types td { padding:5px 8px; border-bottom:1px solid #223060; vertical-align:top; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px; }
+  .card { background:#16204a; border:1px solid #4a63a8; border-radius:12px; padding:14px; }
+  .card h3 { margin:0 0 6px; color:var(--acc); } .card p { margin:4px 0 10px; font-size:13px; opacity:.85; line-height:1.4; }
+  .card .row { margin:6px 0 0; }
+  input[type=range] { width:260px; }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <h1>Click to resume</h1>
+  <p>Mouse: look / orbit &nbsp;|&nbsp; WASD: move &nbsp;|&nbsp; Space: jump &nbsp;|&nbsp; <b>Shift</b>: sprint &nbsp;|&nbsp; <b>Shift + Space</b>: TURBO BOUNCE</p>
+  <p>V: first-person &nbsp;|&nbsp; Scroll: zoom &nbsp;|&nbsp; R: restart / respawn &nbsp;|&nbsp; <b>M</b>: menu &nbsp;|&nbsp; <b>B</b>: build mode (space worlds)</p>
+</div>
+
+<div id="hud">
+  <div class="level" id="hudLevel"></div>
+  <div id="hudInfo"></div>
+  <div class="turbo" id="hudTurbo"></div>
+</div>
+<div id="codeBadge"></div>
+<div id="cross"></div>
+<div id="buildBar"></div>
+<div id="banner"></div>
+<div id="toast"></div>
+
+<div id="menu">
+  <div class="mpanel">
+    <div class="mhead">
+      <div class="mtitle">PARKOUR UNIVERSE</div>
+      <div id="tabs"></div>
+      <button class="mx" id="mclose">Resume &#9654;</button>
+    </div>
+    <div id="menuBody"></div>
+    <div id="menuFoot"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/three@0.146.0/build/three.min.js"></script>
+<script src="https://unpkg.com/cannon@0.6.2/build/cannon.min.js"></script>
+
+<script>
+"use strict";
+if (typeof THREE === "undefined") throw new Error("THREE.js failed to load.");
+if (typeof CANNON === "undefined") throw new Error("Cannon.js failed to load.");
+
+/*PURE_START*/
+// =====================================================================
+//  SEEDED LEVEL LOGIC (no rendering): same code => same level, always
+//
+//  CODE FORMAT:  T D SSSS...
+//    T    = first digit  = level TYPE (0-9)
+//    D    = second digit = DIFFICULTY (0 easiest ... 9 insane)
+//    SSSS = remaining digits = SEED (any length)
+//  Example: 4-5-83712  => type 4 (Maze), difficulty 6, seed 83712
+// =====================================================================
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function hslHex(h, s, l) {
+  h = ((h % 1) + 1) % 1;
+  const k = n => (n + h * 12) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return (Math.round(f(0) * 255) << 16) | (Math.round(f(8) * 255) << 8) | Math.round(f(4) * 255);
+}
+function hashSeed(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const TYPE_INFO = [
+  { name: "Ladder",        tip: "Classic hops forward and up. Sprint to stretch your jumps." },
+  { name: "Spiral",        tip: "Circle a tower upward. Watch your landing angles." },
+  { name: "Needle",        tip: "Thin beams, alternating directions. No room to drift." },
+  { name: "Sky Steps",     tip: "Huge climbs. Hold Shift + Space for a TURBO BOUNCE." },
+  { name: "Maze",          tip: "A ground maze. Find the far gold beacon. (V = first-person helps.)" },
+  { name: "Inverted",      tip: "Gravity pulls UP. Hang under platforms and jump away from them." },
+  { name: "Moon",          tip: "Low gravity, slippery. Touch the pillars IN ORDER before the oxygen runs out." },
+  { name: "Gauntlet",      tip: "Long sprint gaps and big turbo climbs." },
+  { name: "Jupiter Storm", tip: "Crushing gravity and gusting wind over the cloud tops." },
+  { name: "Chaos",         tip: "A seeded mix of every challenge." }
+];
+
+function normalizeCode(raw) { return String(raw == null ? "" : raw).replace(/\D/g, "").slice(0, 24); }
+function decodeCode(raw) {
+  const d = normalizeCode(raw);
+  if (!d.length) return null;
+  const type = +d[0];
+  const diff = d.length > 1 ? (+d[1]) + 1 : 3;           // 1..10
+  const seedStr = d.length > 2 ? d.slice(2) : "0";
+  return { digits: d, type, diff, seedStr, canonical: type + "-" + (diff - 1) + "-" + seedStr };
+}
+
+function defaultRules() {
+  return {
+    gravity: -9.82, jumpV: 8, turboV: 16,
+    turbo: "ground",          // ground | air | charges | none
+    turboMax: 1, turboRecharge: 0,
+    speed: 15, sprint: 24,
+    slip: null,               // { g, a, damp } -> slippery movement
+    wind: 0, windPhase: 0,
+    oxygen: 0, ordered: false,
+    inverted: false,
+    fall: "floor",            // floor | checkpoint | void | none
+    killBelow: -40, killAbove: 1e9,
+    noFloor: false
+  };
+}
+
+// ---- path builder ----
+function makeCtx(rnd, D, hue) { return { rnd, D, hue, n: 0, plats: [], cur: { x: 0, y: 0.5, z: 0 } }; }
+function addPad(ctx, x, y, z, w, d, h) {
+  h = h || 0.5; ctx.n++;
+  ctx.plats.push({ x, y, z, w, h, d, c: hslHex(ctx.hue + ctx.n * 0.022, 0.55, 0.55) });
+  ctx.cur = { x, y, z };
+}
+function segLadder(ctx, n) {
+  const { rnd, D } = ctx, t = (D - 1) / 9;
+  for (let i = 0; i < n; i++) {
+    const size = lerp(7, 2.6, t) * (0.8 + rnd() * 0.4);
+    const dist = 8 + D * 0.8 + rnd() * 2.5;
+    let ang = (rnd() - 0.5) * 1.3;
+    if (ctx.cur.x > 18) ang -= 0.5; if (ctx.cur.x < -18) ang += 0.5;
+    const dy = rnd() < 0.12 ? -(0.5 + rnd() * 1.2) : Math.min(2.9, 0.5 + rnd() * (0.5 + D * 0.2));
+    addPad(ctx, ctx.cur.x + Math.sin(ang) * dist, Math.max(1, ctx.cur.y + dy), ctx.cur.z - Math.cos(ang) * dist, size, size * (0.8 + rnd() * 0.5));
+  }
+}
+function segNeedle(ctx, n) {
+  const { rnd, D } = ctx, t = (D - 1) / 9;
+  for (let i = 0; i < n; i++) {
+    const w = lerp(2.2, 1.2, t), len = 5 + rnd() * 5;
+    const dist = 9 + D * 0.7 + rnd() * 2;
+    let side = (rnd() < 0.5 ? -1 : 1) * (2 + rnd() * 3);
+    if (ctx.cur.x > 14) side = -Math.abs(side); if (ctx.cur.x < -14) side = Math.abs(side);
+    const dy = Math.min(2.6, 0.4 + rnd() * (0.4 + D * 0.18));
+    const x = ctx.cur.x + side, y = Math.max(1, ctx.cur.y + dy), z = ctx.cur.z - dist * 0.85;
+    if (i % 2 === 0) addPad(ctx, x, y, z, w, len); else addPad(ctx, x, y, z, len, w);
+  }
+}
+function segSteps(ctx, n) {
+  const { rnd, D } = ctx, t = (D - 1) / 9;
+  for (let i = 0; i < n; i++) {
+    const size = lerp(6.5, 3, t) * (0.85 + rnd() * 0.3);
+    const dy = 5 + rnd() * (1.5 + D * 0.3);
+    const dist = 6 + D * 0.7 + rnd() * 3;
+    let ang = (rnd() - 0.5) * 1.6;
+    if (ctx.cur.x > 18) ang -= 0.6; if (ctx.cur.x < -18) ang += 0.6;
+    addPad(ctx, ctx.cur.x + Math.sin(ang) * dist, ctx.cur.y + dy, ctx.cur.z - Math.cos(ang) * dist, size, size);
+  }
+}
+function segGap(ctx, n) {
+  const { rnd, D } = ctx, t = (D - 1) / 9;
+  for (let i = 0; i < n; i++) {
+    const size = lerp(6, 3.2, t) * (0.9 + rnd() * 0.2);
+    const dist = 14 + D * 1.5 + rnd() * 2.5;
+    let ang = (rnd() - 0.5) * 0.8;
+    if (ctx.cur.x > 18) ang -= 0.4; if (ctx.cur.x < -18) ang += 0.4;
+    addPad(ctx, ctx.cur.x + Math.sin(ang) * dist, ctx.cur.y + rnd() * 1.2, ctx.cur.z - Math.cos(ang) * dist, size, size);
+  }
+}
+function segSpiral(ctx, n) {
+  const { rnd, D } = ctx;
+  const R = 9 + D * 0.6, chord = 8 + D * 0.5;
+  const dth = 2 * Math.asin(Math.min(0.95, chord / (2 * R)));
+  const dir = ctx.cur.x > 10 ? -1 : 1;
+  const cx = ctx.cur.x + dir * R, cz = ctx.cur.z;
+  let th = dir > 0 ? Math.PI : 0;
+  const size = lerp(6, 3, (D - 1) / 9);
+  for (let i = 0; i < n; i++) {
+    th += dir * dth;
+    const dy = Math.min(2.5, 0.8 + rnd() * (0.8 + D * 0.15));
+    addPad(ctx, cx + R * Math.cos(th), ctx.cur.y + dy, cz + R * Math.sin(th), size, size);
+  }
+}
+function segJupiter(ctx, n) {
+  const { rnd, D } = ctx, t = (D - 1) / 9;
+  for (let i = 0; i < n; i++) {
+    const size = lerp(6.5, 3, t) * (0.85 + rnd() * 0.3);
+    const dist = 6.5 + D * 0.45 + rnd() * 2;
+    let ang = (rnd() - 0.5) * 1.1;
+    if (ctx.cur.x > 16) ang -= 0.5; if (ctx.cur.x < -16) ang += 0.5;
+    const dy = rnd() < 0.25 ? -(0.4 + rnd()) : rnd() * 1.5;
+    addPad(ctx, ctx.cur.x + Math.sin(ang) * dist, Math.max(1, ctx.cur.y + dy), ctx.cur.z - Math.cos(ang) * dist, size, size * (0.85 + rnd() * 0.4));
+  }
+}
+function finishPath(ctx, def) {
+  const { rnd } = ctx, c = ctx.cur, ang = (rnd() - 0.5) * 0.6, dist = 11 + rnd() * 2;
+  const x = c.x + Math.sin(ang) * dist, z = c.z - Math.cos(ang) * dist, y = Math.max(1, c.y + 0.8);
+  ctx.plats.push({ x, y, z, w: 9, h: 0.6, d: 9, c: 0xffffff });
+  ctx.cur = { x, y, z };
+  def.goal = { x, y: y + 0.3, z };
+}
+
+// ---- maze ----
+function genMaze(rnd, D, hue) {
+  const n = Math.min(16, 4 + Math.round(D * 1.2)), cs = 8, T = 1.2, H = 7;
+  const mk = v => Array.from({ length: n }, () => Array(n).fill(v));
+  const right = mk(false), down = mk(false), vis = mk(false);
+  const stack = [[0, 0]]; vis[0][0] = true;
+  while (stack.length) {
+    const [r, c] = stack[stack.length - 1], nb = [];
+    if (r > 0 && !vis[r - 1][c]) nb.push([r - 1, c, "u"]);
+    if (r < n - 1 && !vis[r + 1][c]) nb.push([r + 1, c, "d"]);
+    if (c > 0 && !vis[r][c - 1]) nb.push([r, c - 1, "l"]);
+    if (c < n - 1 && !vis[r][c + 1]) nb.push([r, c + 1, "r"]);
+    if (!nb.length) { stack.pop(); continue; }
+    const [nr, nc, dir] = nb[Math.floor(rnd() * nb.length)];
+    if (dir === "u") down[nr][nc] = true; else if (dir === "d") down[r][c] = true;
+    else if (dir === "l") right[nr][nc] = true; else right[r][c] = true;
+    vis[nr][nc] = true; stack.push([nr, nc]);
+  }
+  // easier mazes get a few shortcuts
+  const shortcut = 0.1 * (11 - D) / 10;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (r < n - 1 && !down[r][c] && rnd() < shortcut) down[r][c] = true;
+    if (c < n - 1 && !right[r][c] && rnd() < shortcut) right[r][c] = true;
+  }
+  // farthest cell from the start (BFS)
+  const dist = mk(-1); dist[0][0] = 0; const q = [[0, 0]]; let far = [0, 0];
+  while (q.length) {
+    const [r, c] = q.shift();
+    if (dist[r][c] > dist[far[0]][far[1]]) far = [r, c];
+    const tryGo = (nr, nc, open) => { if (open && dist[nr][nc] < 0) { dist[nr][nc] = dist[r][c] + 1; q.push([nr, nc]); } };
+    if (r > 0) tryGo(r - 1, c, down[r - 1][c]);
+    if (r < n - 1) tryGo(r + 1, c, down[r][c]);
+    if (c > 0) tryGo(r, c - 1, right[r][c - 1]);
+    if (c < n - 1) tryGo(r, c + 1, right[r][c]);
+  }
+  const walls = []; let wi = 0;
+  const wcol = () => hslHex(hue + (wi++ % 7) * 0.012, 0.4, 0.42 + (wi % 3) * 0.03);
+  const isH = (r, c) => (r === 0 || r === n) ? true : !down[r - 1][c];
+  const isV = (r, c) => (c === 0 || c === n) ? true : !right[r][c - 1];
+  for (let r = 0; r <= n; r++) {
+    let c = 0;
+    while (c < n) {
+      if (!isH(r, c)) { c++; continue; }
+      const c0 = c; while (c < n && isH(r, c)) c++;
+      walls.push({ x: ((c0 + c - 1) / 2) * cs, y: H / 2, z: -(r - 0.5) * cs, w: (c - c0) * cs + T, h: H, d: T, c: wcol() });
+    }
+  }
+  for (let c = 0; c <= n; c++) {
+    let r = 0;
+    while (r < n) {
+      if (!isV(r, c)) { r++; continue; }
+      const r0 = r; while (r < n && isV(r, c)) r++;
+      walls.push({ x: (c - 0.5) * cs, y: H / 2, z: -((r0 + r - 1) / 2) * cs, w: T, h: H, d: (r - r0) * cs + T, c: wcol() });
+    }
+  }
+  return { n, cs, walls, goalCell: far, steps: dist[far[0]][far[1]] };
+}
+
+// ---- level builder: code -> level definition ----
+function buildLevel(raw) {
+  const info = decodeCode(raw);
+  if (!info) return null;
+  const { type, diff: D, seedStr } = info, t = (D - 1) / 9;
+  const rnd = mulberry32(hashSeed(type + "|" + D + "|" + seedStr));
+  const hue = rnd();
+  const ctx = makeCtx(rnd, D, hue);
+  const def = {
+    key: "k:" + info.canonical, code: info.canonical, info, kind: "level",
+    name: TYPE_INFO[type].name + "  " + info.canonical, tip: TYPE_INFO[type].tip,
+    platforms: [], goal: null, rules: defaultRules(), theme: { ground: hslHex(hue, 0.22, 0.34) }, sky: "none"
+  };
+
+  if (type === 0) { segLadder(ctx, 6 + D * 3); finishPath(ctx, def); }
+  else if (type === 1) { segSpiral(ctx, 8 + D * 2); finishPath(ctx, def); }
+  else if (type === 2) { segNeedle(ctx, 6 + D * 2); finishPath(ctx, def); }
+  else if (type === 3) { segSteps(ctx, 4 + D); finishPath(ctx, def); }
+  else if (type === 7) {
+    for (let i = 0; i < 4 + D; i++) { if (rnd() < 0.3) segSteps(ctx, 1); else segGap(ctx, 1); }
+    finishPath(ctx, def);
+  }
+  else if (type === 9) {
+    const fns = [segLadder, segNeedle, segSteps, segGap, segSpiral], segs = 3 + Math.floor(D / 2);
+    for (let i = 0; i < segs; i++) {
+      const f = fns[Math.floor(rnd() * fns.length)];
+      f(ctx, f === segSpiral ? 4 + Math.floor(rnd() * 4) : 3 + Math.floor(rnd() * 3 + D / 3));
+    }
+    finishPath(ctx, def);
+  }
+  else if (type === 8) {
+    segJupiter(ctx, 8 + D * 2); finishPath(ctx, def);
+    Object.assign(def.rules, {
+      gravity: -24.8, jumpV: 11, turboV: 19, slip: { g: 0.25, a: 0.06, damp: 0.96 },
+      wind: 3 + D * 1.3, windPhase: rnd() * 6.28, noFloor: true, fall: "void", killBelow: -35
+    });
+    def.theme = { cloud: true, fog: { color: 0xb07a48, near: 60, far: 800 } };
+    def.sky = "jupiter";
+  }
+  else if (type === 5) {
+    segLadder(ctx, 6 + D * 2); finishPath(ctx, def);
+    const maxY = Math.max(...ctx.plats.map(p => p.y)), H = maxY + 32;
+    const mirrored = ctx.plats.map(p => Object.assign({}, p, { y: H - p.y }));
+    def.noStart = true;
+    mirrored.unshift({ x: 0, y: H - 0.5, z: 0, w: 10, h: 1, d: 10, c: 0xaaaaaa });
+    ctx.plats = mirrored;
+    const g = mirrored[mirrored.length - 1];
+    def.goal = { x: g.x, y: g.y - g.h / 2 - 4, z: g.z };      // mesh centre = y + 2 => just under the pad
+    def.spawn = { x: 0, y: H - 2.2, z: 0 };
+    const minY = Math.min(...mirrored.map(p => p.y));
+    Object.assign(def.rules, { gravity: 9.82, inverted: true, fall: "void", killBelow: minY - 30, killAbove: H + 25 });
+    def.sky = "deep";
+  }
+  else if (type === 6) {
+    const count = 4 + D;
+    let top = 0, z = 0, x = 0;
+    const pillars = [];
+    for (let k = 0; k < count; k++) {
+      top += k === 0 ? 3 + rnd() * 2.5 : Math.min(14, 3 + rnd() * (1 + D * 1.0));
+      z -= 26 + D * 2.5 + rnd() * 8;
+      x = clamp(x + (rnd() - 0.5) * 18, -22, 22);
+      const size = lerp(6.5, 2.6, t) * (0.9 + rnd() * 0.2);
+      pillars.push({ x, y: top / 2, z, w: size, h: top, d: size, c: 0x8a8a92 + k * 0x040404, cp: k + 1 });
+    }
+    ctx.plats = pillars.slice();
+    for (let i = 0; i < 8; i++) {
+      const rx = (rnd() - 0.5) * 100, rz = -10 - rnd() * 60;
+      const w = 2 + rnd() * 3, d = 2 + rnd() * 3, h = 1.2 + rnd() * 2.2, g = 0x70 + Math.floor(rnd() * 0x30);
+      if (pillars.some(p => Math.hypot(p.x - rx, p.z - rz) < 9) || (Math.abs(rx) < 8 && rz > -14)) continue;
+      ctx.plats.push({ x: rx, y: h / 2, z: rz, w, h, d, c: (g << 16) | (g << 8) | (g + 6) });
+    }
+    const last = pillars[pillars.length - 1];
+    def.goal = { x: last.x, y: last.h, z: last.z };
+    def.orderedCount = count;
+    Object.assign(def.rules, {
+      gravity: -3.2, jumpV: 6.5, turboV: 10, turbo: "charges", turboMax: 1, turboRecharge: 14,
+      slip: { g: 0.12, a: 0.035, damp: 0.99 }, oxygen: 120 + count * 45, ordered: true, fall: "checkpoint"
+    });
+    def.theme = { groundTex: "moon" };
+    def.sky = "moon";
+  }
+  else if (type === 4) {
+    const m = genMaze(rnd, D, hue);
+    ctx.plats = m.walls.slice();
+    const gx = m.goalCell[1] * m.cs, gz = -m.goalCell[0] * m.cs;
+    ctx.plats.push({ x: 0, y: 0.1, z: 0, w: m.cs - 2, h: 0.2, d: m.cs - 2, c: 0x66ff99 });
+    ctx.plats.push({ x: gx, y: 0.1, z: gz, w: m.cs - 2, h: 0.2, d: m.cs - 2, c: 0xffffff });
+    def.goal = { x: gx, y: 0.2, z: gz };
+    def.noStart = true;
+    def.spawn = { x: 0, y: 2, z: 0 };
+    def.mazeInfo = { n: m.n, steps: m.steps };
+    Object.assign(def.rules, { fall: "none", turbo: "none" });
+  }
+
+  if (type !== 6 && type !== 4 && type !== 5) { /* path types keep ctx.plats */ }
+  def.platforms = ctx.plats;
+  return def;
+}
+/*PURE_END*/
+
+// =====================================================================
+//  THREE / CANNON SETUP
+// =====================================================================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0b1e);
+const BASE_FOV = 75;
+const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.1, 8000);
+camera.position.set(0, 3, 6);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const $ = id => document.getElementById(id);
+const overlay = $("overlay"), menuEl = $("menu");
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
+
+let pointerLocked = false, menuOpen = true, started = false;
+function updateOverlay() { overlay.style.display = (started && !pointerLocked && !menuOpen) ? "flex" : "none"; }
+function lockPointer() { try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+overlay.addEventListener("click", lockPointer);
+renderer.domElement.addEventListener("click", () => { if (!pointerLocked && !menuOpen) lockPointer(); });
+document.addEventListener("pointerlockchange", () => {
+  pointerLocked = document.pointerLockElement === renderer.domElement;
+  updateOverlay();
+});
+
+// ---- camera state ----
+let isFirstPerson = false, camYaw = 0, fpPitch = 0, tpPitch = 0.35, tpDistance = 8, sens = 0.0025;
+window.addEventListener("mousemove", (e) => {
+  if (!pointerLocked) return;
+  camYaw -= e.movementX * sens;
+  if (isFirstPerson) { fpPitch -= e.movementY * sens; fpPitch = clamp(fpPitch, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01); }
+  else { tpPitch += e.movementY * sens; tpPitch = clamp(tpPitch, -0.2, 1.4); }
+});
+window.addEventListener("wheel", (e) => {
+  if (isFirstPerson || menuOpen) return;
+  tpDistance = clamp(tpDistance + e.deltaY * 0.01, 4, 14);
+});
+
+// ---- lighting ----
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+hemiLight.position.set(0, 50, 0);
+scene.add(hemiLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(50, 100, 50);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 4096; dirLight.shadow.mapSize.height = 4096;
+dirLight.shadow.camera.near = 0.1; dirLight.shadow.camera.far = 1000;
+dirLight.shadow.camera.left = -200; dirLight.shadow.camera.right = 200;
+dirLight.shadow.camera.top = 200; dirLight.shadow.camera.bottom = -200;
+scene.add(dirLight); scene.add(dirLight.target);
+
+// ---- nebula sky (kept from the original) ----
+let skyMesh = null;
+new THREE.TextureLoader().load(
+  "https://i.ibb.co/kVwYjVmM/4f6f57e1-c7de-4e7e-b9b0-330bb56a96ab.png",
+  (texture) => {
+    skyMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(3000, 64, 64),
+      new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, depthWrite: false, fog: false })
+    );
+    skyMesh.renderOrder = -1;
+    scene.add(skyMesh);
+  }
+);
+
+// ---- physics ----
+const world = new CANNON.World();
+world.gravity.set(0, -9.82, 0);
+world.broadphase = new CANNON.NaiveBroadphase();
+world.solver.iterations = 10;
+
+const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+world.addBody(groundBody);
+let groundActive = true;
+
+const groundMaterialMesh = new THREE.MeshPhongMaterial({ color: 0x999999 });
+const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), groundMaterialMesh);
+groundMesh.rotation.x = -Math.PI / 2;
+groundMesh.receiveShadow = true;
+scene.add(groundMesh);
+function setGround(active) {
+  if (active && !groundActive) world.addBody(groundBody);
+  if (!active && groundActive) world.removeBody(groundBody);
+  groundActive = active; groundMesh.visible = active;
+}
+
+// ---- player ----
+const playerMat = new THREE.MeshPhongMaterial({ color: 0x00ff00, emissive: 0x000000 });
+const playerMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), playerMat);
+playerMesh.castShadow = true;
+scene.add(playerMesh);
+const playerBody = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(0.5, 1, 0.5)), position: new CANNON.Vec3(0, 3, 0) });
+world.addBody(playerBody);
+
+// =====================================================================
+//  TEXTURES AND CELESTIAL OBJECTS
+// =====================================================================
+function canvasTex(w, h, draw) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  draw(c.getContext("2d"), w, h);
+  return new THREE.CanvasTexture(c);
+}
+function tiled(tex, rep) {
+  const t = tex.clone(); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.needsUpdate = true; return t;
+}
+function noiseTex(base, rgb, count) {
+  return canvasTex(512, 512, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < count; i++) {
+      g.fillStyle = "rgba(" + rgb + "," + (0.05 + Math.random() * 0.18) + ")";
+      const s = 2 + Math.random() * 7; g.fillRect(Math.random() * w, Math.random() * h, s, s);
+    }
+  });
+}
+const moonTex = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = "#b9b9bd"; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 4000; i++) { const v = 150 + Math.random() * 60 | 0; g.fillStyle = "rgba(" + v + "," + v + "," + (v + 4) + ",0.25)"; g.fillRect(Math.random() * w, Math.random() * h, 3, 3); }
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * w, y = Math.random() * h, r = 4 + Math.random() * Math.random() * 45;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = "rgba(90,90,98,0.55)"; g.fill();
+    g.lineWidth = Math.max(1, r * 0.12); g.strokeStyle = "rgba(235,235,240,0.5)"; g.stroke();
+  }
+});
+const marsTex = noiseTex("#a8482a", "70,25,15", 5000);
+const europaTex = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = "#cfe3ee"; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2500; i++) { g.fillStyle = "rgba(255,255,255," + (0.05 + Math.random() * 0.15) + ")"; g.fillRect(Math.random() * w, Math.random() * h, 3, 3); }
+  g.strokeStyle = "rgba(150,90,60,0.45)"; g.lineWidth = 2;
+  for (let i = 0; i < 26; i++) { g.beginPath(); let x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += (Math.random() - 0.5) * 120; y += (Math.random() - 0.5) * 120; g.lineTo(x, y); } g.stroke(); }
+});
+const jupTex = canvasTex(1024, 512, (g, w, h) => {
+  for (let y = 0; y < h; y++) {
+    const tt = y / h, wob = Math.sin(tt * 38) + 0.5 * Math.sin(tt * 91 + 1) + 0.3 * Math.sin(tt * 17);
+    g.fillStyle = "hsl(" + (28 + wob * 8) + "," + (55 + wob * 10) + "%," + (58 + wob * 10) + "%)"; g.fillRect(0, y, w, 1);
+  }
+  for (let i = 0; i < 260; i++) {
+    const y = Math.random() * h; g.strokeStyle = "rgba(255,255,255," + (0.04 + Math.random() * 0.06) + ")"; g.lineWidth = 1 + Math.random() * 3;
+    g.beginPath(); g.moveTo(Math.random() * w, y); g.bezierCurveTo(Math.random() * w, y + 12, Math.random() * w, y - 12, Math.random() * w, y); g.stroke();
+  }
+  g.fillStyle = "rgba(180,60,35,0.92)"; g.beginPath(); g.ellipse(w * 0.68, h * 0.62, 78, 42, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = "rgba(255,200,160,0.5)"; g.lineWidth = 6; g.stroke();
+});
+const planetTex = canvasTex(512, 256, (g, w, h) => {
+  for (let y = 0; y < h; y += 4) { const hue = 25 + Math.sin(y * 0.09) * 12 + Math.random() * 6, light = 45 + Math.sin(y * 0.25) * 12 + Math.random() * 6; g.fillStyle = "hsl(" + hue + ",55%," + light + "%)"; g.fillRect(0, y, w, 4); }
+});
+const earthTex = canvasTex(512, 256, (g, w, h) => {
+  g.fillStyle = "#1e5fc4"; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 40; i++) {
+    g.fillStyle = "rgba(" + (40 + Math.random() * 40 | 0) + "," + (130 + Math.random() * 60 | 0) + "," + (50 + Math.random() * 30 | 0) + ",0.9)";
+    g.beginPath(); g.ellipse(Math.random() * w, 30 + Math.random() * (h - 60), 10 + Math.random() * 40, 6 + Math.random() * 22, Math.random() * 3, 0, Math.PI * 2); g.fill();
+  }
+  for (let i = 0; i < 60; i++) { g.fillStyle = "rgba(255,255,255,0.35)"; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, 15 + Math.random() * 40, 3 + Math.random() * 8, 0, 0, Math.PI * 2); g.fill(); }
+});
+function glowTex(stops) {
+  return canvasTex(256, 256, (g, w, h) => {
+    const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    stops.forEach(s => grad.addColorStop(s[0], s[1]));
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+  });
+}
+const groundTexMap = { moon: tiled(moonTex, 80), mars: tiled(marsTex, 80), europa: tiled(europaTex, 80) };
+
+const lam = (map, emissive) => new THREE.MeshLambertMaterial({ map, emissive, emissiveMap: map, fog: false });
+const moonSphere = new THREE.Mesh(new THREE.SphereGeometry(160, 48, 48), lam(moonTex, 0x888888));
+const earth = new THREE.Mesh(new THREE.SphereGeometry(260, 48, 48), lam(earthTex, 0x335577));
+earth.add(new THREE.Mesh(new THREE.SphereGeometry(290, 48, 48),
+  new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.28, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })));
+const jupiterGlobe = new THREE.Mesh(new THREE.SphereGeometry(800, 64, 64), lam(jupTex, 0x6a4a30));
+const ringed = new THREE.Group();
+ringed.add(new THREE.Mesh(new THREE.SphereGeometry(300, 48, 48), lam(planetTex, 0x553322)));
+const ringMesh = new THREE.Mesh(new THREE.RingGeometry(430, 700, 128),
+  new THREE.MeshBasicMaterial({ color: 0xd9c9a3, transparent: true, opacity: 0.6, side: THREE.DoubleSide, fog: false }));
+ringMesh.rotation.x = Math.PI / 2; ringed.add(ringMesh); ringed.rotation.z = 0.35;
+const smallBall = (r, color) => new THREE.Mesh(new THREE.SphereGeometry(r, 24, 24), new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.35, fog: false }));
+const io = smallBall(60, 0xe8d36a), europaBall = smallBall(50, 0xe6eef2), phobos = smallBall(35, 0x8a7d72);
+const spriteMat = tex => new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
+const bigStar = new THREE.Sprite(spriteMat(glowTex([[0, "rgba(255,255,255,1)"], [0.15, "rgba(190,220,255,0.9)"], [0.4, "rgba(110,160,255,0.35)"], [1, "rgba(80,120,255,0)"]])));
+const sunSprite = new THREE.Sprite(spriteMat(glowTex([[0, "rgba(255,255,240,1)"], [0.12, "rgba(255,235,170,0.95)"], [0.4, "rgba(255,190,100,0.35)"], [1, "rgba(255,160,60,0)"]])));
+bigStar.renderOrder = 1; sunSprite.renderOrder = 1;
+
+const starCount = 2500, starPos = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u);
+  starPos[i * 3] = Math.cos(a) * r * 2800; starPos[i * 3 + 1] = u * 2800; starPos[i * 3 + 2] = Math.sin(a) * r * 2800;
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+const starField = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+starField.frustumCulled = false;
+
+const cloudMesh = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshBasicMaterial({ map: tiled(jupTex, 10), fog: false }));
+cloudMesh.rotation.x = -Math.PI / 2; cloudMesh.position.y = -70; cloudMesh.visible = false;
+scene.add(cloudMesh);
+
+const allSky = [moonSphere, earth, jupiterGlobe, ringed, io, europaBall, phobos, bigStar, sunSprite];
+allSky.forEach(o => { o.visible = false; scene.add(o); });
+scene.add(starField);
+
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z).normalize();
+const SKY = {
+  none: { stars: 0, items: [] },
+  deep: { stars: 0.7, items: [{ o: ringed, d: V3(0.7, 0.25, -0.65), r: 2350, s: 1 }, { o: bigStar, d: V3(0.1, 0.6, -0.8), r: 2700, s: 900 }] },
+  moon: { stars: 1, items: [{ o: earth, d: V3(-0.35, 0.4, -0.85), r: 1600, s: 1 }, { o: ringed, d: V3(0.7, 0.25, -0.65), r: 2350, s: 1 }, { o: bigStar, d: V3(0.1, 0.6, -0.8), r: 2700, s: 900 }] },
+  mars: { stars: 0.5, items: [{ o: sunSprite, d: V3(0.5, 0.6, -0.6), r: 2600, s: 700 }, { o: phobos, d: V3(-0.5, 0.5, -0.6), r: 1200, s: 1 }, { o: earth, d: V3(0.2, 0.5, -0.8), r: 2500, s: 0.12 }] },
+  europa: { stars: 1, items: [{ o: jupiterGlobe, d: V3(0.3, 0.5, -0.8), r: 2000, s: 1 }, { o: sunSprite, d: V3(-0.7, 0.4, -0.5), r: 2700, s: 500 }, { o: io, d: V3(-0.2, 0.55, -0.8), r: 1500, s: 1 }] },
+  jupiter: { stars: 0.5, items: [{ o: sunSprite, d: V3(0.6, 0.5, -0.6), r: 2700, s: 600 }, { o: io, d: V3(-0.5, 0.4, -0.75), r: 1500, s: 1 }, { o: europaBall, d: V3(0.3, 0.7, -0.65), r: 1900, s: 1 }] },
+  station: { stars: 1, items: [{ o: earth, d: V3(0, -0.85, -0.5), r: 2300, s: 5.4 }, { o: sunSprite, d: V3(0.6, 0.5, -0.6), r: 2800, s: 900 }, { o: moonSphere, d: V3(-0.6, 0.35, -0.7), r: 2200, s: 0.45 }] }
+};
+
+// Turbo Mode altitude milestones (moon / ringed giant / star appear as you climb)
+const spaceBodies = [
+  { label: "the MOON", alt: 1000, obj: moonSphere, dir: V3(-0.55, 0.35, -0.75), far: 2300, near: 450, lead: 500, span: 500, shown: false, sub: "Find the white beacon to land on it" },
+  { label: "a RINGED GIANT", alt: 2500, obj: ringed, dir: V3(0.7, 0.25, -0.65), far: 2350, near: 1300, lead: 150, span: 3500, shown: false },
+  { label: "a DISTANT STAR", alt: 5000, obj: bigStar, dir: V3(0.1, 0.6, -0.8), far: 2700, near: 1600, lead: 150, span: 4000, shown: false, spriteSize: 900 }
+];
+function placeSky(o, cp, dir, dist, scale, dt, spin) {
+  o.visible = true;
+  o.position.copy(cp).addScaledVector(dir, dist);
+  if (o.isSprite) o.scale.set(scale, scale, 1); else o.scale.setScalar(Math.max(0.0001, scale));
+  if (spin && !o.isSprite) o.rotation.y += dt * 0.02;
+}
+function updateSky(dt) {
+  const cp = camera.position;
+  allSky.forEach(o => { o.visible = false; });
+  starField.position.copy(cp);
+  let starOp = 0;
+  if (cur.kind === "turbo") {
+    const alt = playerBody.position.y - 1;
+    starOp = clamp((alt - 200) / 600, 0, 1);
+    for (const b of spaceBodies) {
+      const t = alt - b.alt;
+      if (t < -b.lead) continue;
+      const fade = Math.min(1, (t + b.lead) / 150), eased = fade * fade * (3 - 2 * fade);
+      const prog = clamp((t + b.lead) / (b.span + b.lead), 0, 1);
+      placeSky(b.obj, cp, b.dir, b.far + (b.near - b.far) * prog, (b.spriteSize || 1) * eased, dt, true);
+      if (!b.shown && alt >= b.alt) { b.shown = true; showBanner("You've reached " + b.label + "!", b.sub || (b.alt + " m"), 3500); }
+    }
+  } else {
+    const pre = SKY[cur.sky || "none"] || SKY.none;
+    starOp = pre.stars;
+    for (const it of pre.items) placeSky(it.o, cp, it.d, it.r, it.s, dt, true);
+  }
+  starField.material.opacity = starOp;
+}
+
+// =====================================================================
+//  INDEXEDDB (progress, best times, recent codes, built worlds)
+// =====================================================================
+const DB = (() => {
+  let db = null, ok = false;
+  const mem = { kv: new Map(), worlds: new Map() };
+  const open = () => new Promise(res => {
+    try {
+      if (typeof indexedDB === "undefined") { res(false); return; }
+      const req = indexedDB.open("ParkourUniverse", 1);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains("kv")) d.createObjectStore("kv");
+        if (!d.objectStoreNames.contains("worlds")) d.createObjectStore("worlds");
+      };
+      req.onsuccess = () => { db = req.result; ok = true; res(true); };
+      req.onerror = () => res(false);
+      req.onblocked = () => res(false);
+    } catch (e) { res(false); }
+  });
+  const get = (store, key) => new Promise(res => {
+    if (!ok) { res(mem[store].get(key)); return; }
+    try { const r = db.transaction(store).objectStore(store).get(key); r.onsuccess = () => res(r.result); r.onerror = () => res(undefined); }
+    catch (e) { res(undefined); }
+  });
+  const set = (store, key, val) => new Promise(res => {
+    if (!ok) { mem[store].set(key, val); res(true); return; }
+    try { const tx = db.transaction(store, "readwrite"); tx.objectStore(store).put(val, key); tx.oncomplete = () => res(true); tx.onerror = () => res(false); tx.onabort = () => res(false); }
+    catch (e) { res(false); }
+  });
+  const del = (store, key) => new Promise(res => {
+    if (!ok) { mem[store].delete(key); res(true); return; }
+    try { const tx = db.transaction(store, "readwrite"); tx.objectStore(store).delete(key); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }
+    catch (e) { res(false); }
+  });
+  return { open, get, set, del, isPersistent: () => ok };
+})();
+
+const save = { v: 1, completed: {}, bestTime: {}, recent: [], lastWorld: null, sens: 0.0025 };
+let saveTimer = null;
+function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { DB.set("kv", "save", save); }, 400); }
+let toastTimer = null;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.style.opacity = 1;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = 0; }, 1800);
+}
+let bannerTimeout = null;
+function showBanner(title, sub, ms) {
+  const b = $("banner"); b.innerHTML = title + (sub ? "<small>" + sub + "</small>" : "");
+  b.style.opacity = 1; clearTimeout(bannerTimeout); bannerTimeout = setTimeout(() => { b.style.opacity = 0; }, ms || 2500);
+}
+const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
+
+// =====================================================================
+//  LEVEL RUNTIME
+// =====================================================================
+let cur = null, rules = defaultRules();
+let goalMesh = null, portalMesh = null;
+let levelTime = 0, bestHeight = 0, transitioning = false;
+let turboCooldown = 0, turboCharges = 1, turboRegen = 0, oxygen = 0, fovKick = 0;
+let checkpoint = { idx: 0, x: 0, y: 1, z: 0 }, lastSafe = null, warnUntil = 0;
+let canJump = false;
+
+const levelGroup = new THREE.Group(); scene.add(levelGroup);
+let levelObjects = [];
+const streamed = new Map();
+const START = { x: 0, y: 0.5, z: 0, w: 10, h: 1, d: 10, c: 0xAAAAAA };
+
+function createPlatform(p) {
+  const mat = new THREE.MeshPhongMaterial({ color: p.c });
+  if (p.emissive) mat.emissive = new THREE.Color(p.emissive);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), mat);
+  mesh.position.set(p.x, p.y, p.z);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  levelGroup.add(mesh);
+  const body = new CANNON.Body({ mass: 0 });
+  body.addShape(new CANNON.Box(new CANNON.Vec3(p.w / 2, p.h / 2, p.d / 2)));
+  body.position.set(p.x, p.y, p.z);
+  world.addBody(body);
+  if (p.h <= 1.5 || p.cp !== undefined) {
+    body.safe = rules.gravity > 0
+      ? { x: p.x, y: p.y - p.h / 2 - 1.4, z: p.z, ref: p.y - p.h / 2, inv: true }
+      : { x: p.x, y: p.y + p.h / 2 + 2.4, z: p.z, ref: p.y + p.h / 2, inv: false };
+  }
+  if (p.cp !== undefined) body.cp = { idx: p.cp, x: p.x, y: p.y + p.h / 2, z: p.z };
+  const obj = { mesh, body };
+  levelObjects.push(obj);
+  return obj;
+}
+function disposeObj(o) {
+  levelGroup.remove(o.mesh); o.mesh.geometry.dispose(); o.mesh.material.dispose(); world.removeBody(o.body);
+}
+function removePortal() {
+  if (!portalMesh) return;
+  scene.remove(portalMesh); portalMesh.geometry.dispose(); portalMesh.material.dispose(); portalMesh = null;
+}
+function clearLevel() {
+  flushBlocks();
+  for (const o of levelObjects) disposeObj(o);
+  levelObjects = []; streamed.clear(); removePortal(); clearBlocks();
+  if (goalMesh) { scene.remove(goalMesh); goalMesh.geometry.dispose(); goalMesh.material.dispose(); goalMesh = null; }
+}
+
+playerBody.addEventListener("collide", (e) => {
+  const b = e.body; if (b.mass !== 0) return;
+  canJump = true;
+  const py = playerBody.position.y;
+  if (b.safe) { const s = b.safe; if (s.inv ? py < s.ref - 0.3 : py > s.ref + 0.3) lastSafe = s; }
+  if (rules.ordered && b.cp && (rules.gravity < 0 ? py > b.cp.y + 0.5 : false)) {
+    if (b.cp.idx === checkpoint.idx + 1) { checkpoint = b.cp; showBanner("Pillar " + checkpoint.idx + " secured", "Touch every pillar in order.", 1100); }
+    else if (b.cp.idx > checkpoint.idx + 1 && performance.now() > warnUntil) {
+      warnUntil = performance.now() + 1800; showBanner("Pillar skipped!", "Touch pillar " + (checkpoint.idx + 1) + " first.", 1400);
+    }
+  }
+});
+
+// ---- endless stairs (Turbo Mode): deterministic, rebuilt identically up AND down ----
+const GATE_INDEX = 330;
+function stairParams(i) {
+  const r = k => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const y = 9 + i * 3 + (r(1) - 0.5);
+  const p = { x: (r(2) - 0.5) * 10, y, z: -(y * 1.5 + 46 + r(3) * 10), w: r(4) * 3 + 3, h: 0.5, d: r(5) * 3 + 3, c: Math.floor(r(6) * 0xffffff) };
+  if (i === GATE_INDEX) { p.w = 10; p.d = 10; p.h = 1; p.c = 0xffffff; }
+  return p;
+}
+function spawnStair(i) {
+  const p = stairParams(i), obj = createPlatform(p);
+  streamed.set(i, obj);
+  if (i === GATE_INDEX) {
+    portalMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 6, 24, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+    portalMesh.position.set(p.x, p.y + p.h / 2 + 3, p.z); scene.add(portalMesh);
+  }
+}
+function removeStair(i, obj) {
+  disposeObj(obj);
+  const k = levelObjects.indexOf(obj); if (k >= 0) levelObjects.splice(k, 1);
+  streamed.delete(i); if (i === GATE_INDEX) removePortal();
+}
+function updateStairs(py) {
+  const lo = Math.max(1, Math.ceil((py - 100 - 9) / 3)), hi = Math.floor((py + 100 - 9) / 3);
+  for (let i = lo; i <= hi; i++) if (!streamed.has(i)) spawnStair(i);
+  for (const [i, obj] of Array.from(streamed)) if (i < lo - 10 || i > hi + 10) removeStair(i, obj);
+}
+
+// =====================================================================
+//  BUILD SYSTEM (space worlds): blocks persist in IndexedDB per world
+// =====================================================================
+const BLOCK = 2;
+const PALETTE = [
+  { name: "Stone", color: 0x9a9aa0 }, { name: "Brick", color: 0xb5523a }, { name: "Wood", color: 0x9a6a3a },
+  { name: "Glass", color: 0x88ccff, opacity: 0.35 }, { name: "Neon", color: 0x22ffee, emissive: 0x11ccbb },
+  { name: "Gold", color: 0xffcc33, emissive: 0x332200 }, { name: "Ice", color: 0xcfeeff, opacity: 0.8 },
+  { name: "Grass", color: 0x4fae4f }, { name: "Hull", color: 0x2b2f45, emissive: 0x0a0c18 }
+];
+const blockGeo = new THREE.BoxGeometry(BLOCK, BLOCK, BLOCK);
+const blockMats = PALETTE.map(p => new THREE.MeshPhongMaterial({
+  color: p.color, emissive: p.emissive || 0x000000, transparent: !!p.opacity, opacity: p.opacity || 1
+}));
+const blockGroup = new THREE.Group(); scene.add(blockGroup);
+const blocks = new Map();
+const MAX_BLOCKS = 8000;
+let buildMode = false, selBlock = 0, blocksDirty = false, blockTimer = null;
+const bkey = (x, y, z) => x + "," + y + "," + z;
+
+function addBlock(ix, iy, iz, t, persist) {
+  const k = bkey(ix, iy, iz);
+  if (blocks.has(k)) removeBlock(k, false);
+  const mesh = new THREE.Mesh(blockGeo, blockMats[t]);
+  mesh.position.set(ix * BLOCK, iy * BLOCK + BLOCK / 2, iz * BLOCK);
+  mesh.castShadow = !PALETTE[t].opacity; mesh.receiveShadow = true;
+  mesh.userData.bkey = k;
+  blockGroup.add(mesh);
+  blocks.set(k, { ix, iy, iz, t, mesh, body: null });
+  if (persist) markDirty();
+}
+function removeBlock(k, persist) {
+  const b = blocks.get(k); if (!b) return;
+  blockGroup.remove(b.mesh);
+  if (b.body) world.removeBody(b.body);
+  blocks.delete(k);
+  if (persist) markDirty();
+}
+function clearBlocks() {
+  for (const b of blocks.values()) { blockGroup.remove(b.mesh); if (b.body) world.removeBody(b.body); }
+  blocks.clear();
+}
+function refreshBlockBodies() {
+  const p = playerBody.position, R = 22;
+  for (const b of blocks.values()) {
+    const cx = b.ix * BLOCK, cy = b.iy * BLOCK + 1, cz = b.iz * BLOCK;
+    const dx = Math.abs(cx - p.x), dy = Math.abs(cy - p.y), dz = Math.abs(cz - p.z);
+    if (!b.body && dx < R && dy < R && dz < R) {
+      b.body = new CANNON.Body({ mass: 0 });
+      b.body.addShape(new CANNON.Box(new CANNON.Vec3(1, 1, 1)));
+      b.body.position.set(cx, cy, cz);
+      world.addBody(b.body);
+    } else if (b.body && (dx > R + 8 || dy > R + 8 || dz > R + 8)) {
+      world.removeBody(b.body); b.body = null;
+    }
+  }
+}
+function markDirty() { blocksDirty = true; clearTimeout(blockTimer); blockTimer = setTimeout(flushBlocks, 900); }
+function flushBlocks() {
+  clearTimeout(blockTimer);
+  if (!blocksDirty || !cur || cur.kind !== "world") return;
+  blocksDirty = false;
+  const arr = []; for (const b of blocks.values()) arr.push([b.ix, b.iy, b.iz, b.t]);
+  DB.set("worlds", "w:" + cur.worldId, { blocks: arr, updated: Date.now() }).then(ok => toast(ok ? "Build saved (" + arr.length + " blocks)" : "Could not save build"));
+}
+async function loadWorldBlocks(id) {
+  const data = await DB.get("worlds", "w:" + id);
+  if (!cur || cur.worldId !== id) return;
+  if (data && data.blocks) { for (const b of data.blocks) addBlock(b[0], b[1], b[2], b[3], false); toast("Loaded " + data.blocks.length + " blocks"); }
+  refreshBlockBodies();
+}
+
+const raycaster = new THREE.Raycaster(), ndc0 = new THREE.Vector2(0, 0);
+const ghost = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.05, 2.05, 2.05)), new THREE.LineBasicMaterial({ color: 0xffffff }));
+ghost.visible = false; scene.add(ghost);
+const target = { place: null, remove: null };
+function updateBuildTarget() {
+  target.place = null; target.remove = null; ghost.visible = false;
+  if (!buildMode) return;
+  camera.updateMatrixWorld();
+  raycaster.setFromCamera(ndc0, camera);
+  raycaster.far = (isFirstPerson ? 0 : tpDistance) + 22;
+  const list = [blockGroup, levelGroup]; if (groundMesh.visible) list.push(groundMesh);
+  const hits = raycaster.intersectObjects(list, true);
+  if (!hits.length) return;
+  const h = hits[0], n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+  const px = h.point.x + n.x * 0.5, py = h.point.y + n.y * 0.5, pz = h.point.z + n.z * 0.5;
+  const ix = Math.round(px / BLOCK), iy = Math.floor(py / BLOCK), iz = Math.round(pz / BLOCK);
+  target.place = [ix, iy, iz];
+  if (h.object.userData.bkey) target.remove = h.object.userData.bkey;
+  ghost.position.set(ix * BLOCK, iy * BLOCK + 1, iz * BLOCK); ghost.visible = true;
+}
+function placeBlock() {
+  if (!target.place) return;
+  if (blocks.size >= MAX_BLOCKS) { toast("Block limit reached (" + MAX_BLOCKS + ")"); return; }
+  const [ix, iy, iz] = target.place, p = playerBody.position;
+  if (Math.abs(ix * BLOCK - p.x) < 1.9 && Math.abs(iy * BLOCK + 1 - p.y) < 2.1 && Math.abs(iz * BLOCK - p.z) < 1.9) return;
+  addBlock(ix, iy, iz, selBlock, true); refreshBlockBodies();
+}
+window.addEventListener("mousedown", (e) => {
+  if (!pointerLocked || !buildMode || menuOpen) return;
+  if (e.button === 0) placeBlock();
+  else if (e.button === 2 && target.remove) removeBlock(target.remove, true);
+});
+window.addEventListener("contextmenu", e => e.preventDefault());
+
+const buildBar = $("buildBar");
+PALETTE.forEach((p, i) => {
+  const s = el("div", "slot", (i + 1));
+  s.style.background = "#" + p.color.toString(16).padStart(6, "0") + (p.opacity ? "88" : "");
+  buildBar.appendChild(s);
+});
+function selectBlock(i) { selBlock = i; [...buildBar.children].forEach((s, k) => s.classList.toggle("sel", k === i)); }
+selectBlock(0);
+function setBuildMode(on) {
+  if (on && (!cur || cur.kind !== "world")) { toast("Build mode works in the space worlds (menu > Explore & Build)"); return; }
+  buildMode = on;
+  $("cross").style.display = on ? "block" : "none";
+  buildBar.style.display = on ? "flex" : "none";
+  if (!on) ghost.visible = false;
+}
+
+// =====================================================================
+//  LEVEL DEFINITIONS: hand-made, special, worlds
+// =====================================================================
+const HAND = [
+  { name: "Level 1: Warm-Up", tip: "Use Space to hop between platforms.",
+    platforms: [{ x: 0, y: 2, z: -12, w: 6, h: .5, d: 6, c: 0x44aa44 }, { x: 3, y: 3.5, z: -24, w: 6, h: .5, d: 6, c: 0x4444aa }, { x: -3, y: 5, z: -36, w: 6, h: .5, d: 6, c: 0xaa4444 }, { x: 0, y: 6.5, z: -48, w: 8, h: .5, d: 8, c: 0x88aa00 }],
+    goal: { x: 0, y: 6.75, z: -48 } },
+  { name: "Level 2: Narrow Escape", tip: "Smaller platforms. Hold Shift to sprint across gaps.",
+    platforms: [{ x: 0, y: 2, z: -12, w: 3, h: .5, d: 3, c: 0x44aaaa }, { x: 5, y: 3.5, z: -22, w: 3, h: .5, d: 3, c: 0xaa44aa }, { x: -2, y: 5, z: -32, w: 2, h: .5, d: 6, c: 0xaaaa44 }, { x: 4, y: 6.5, z: -44, w: 3, h: .5, d: 3, c: 0x44aa44 }, { x: 0, y: 8, z: -56, w: 4, h: .5, d: 4, c: 0xff8844 }, { x: -5, y: 9.5, z: -68, w: 5, h: .5, d: 5, c: 0x4488ff }],
+    goal: { x: -5, y: 9.75, z: -68 } },
+  { name: "Level 3: Sky Steps", tip: "Too high to jump! Hold Shift + Space for a TURBO BOUNCE.",
+    platforms: [{ x: 0, y: 6, z: -10, w: 6, h: .5, d: 6, c: 0xff5577 }, { x: 4, y: 12, z: -22, w: 6, h: .5, d: 6, c: 0xffaa33 }, { x: -4, y: 18, z: -34, w: 6, h: .5, d: 6, c: 0x55ddaa }, { x: 0, y: 24, z: -46, w: 8, h: .5, d: 8, c: 0x6688ff }],
+    goal: { x: 0, y: 24.25, z: -46 } },
+  { name: "Level 4: Gauntlet", tip: "Sprint + Turbo Bounce. Long gaps, big climbs.",
+    platforms: [{ x: 0, y: 4, z: -18, w: 4, h: .5, d: 4, c: 0xdd4466 }, { x: 6, y: 8, z: -42, w: 4, h: .5, d: 4, c: 0x44ddaa }, { x: -6, y: 13, z: -66, w: 4, h: .5, d: 4, c: 0xddaa44 }, { x: 0, y: 19, z: -90, w: 3, h: .5, d: 3, c: 0x8844dd }, { x: 8, y: 26, z: -112, w: 3, h: .5, d: 3, c: 0x44aadd }, { x: 0, y: 32, z: -134, w: 8, h: .5, d: 8, c: 0xffffff }],
+    goal: { x: 0, y: 32.25, z: -134 } },
+  { name: "Level 5: Crystal Spiral", tip: "Circle the tower. Short landings demand control.",
+    platforms: [{ x: 7, y: 3, z: -10, w: 4, h: .5, d: 4, c: 0x66eeff }, { x: 10, y: 6, z: -20, w: 3.5, h: .5, d: 3.5, c: 0x9966ff }, { x: 3, y: 9, z: -29, w: 3, h: .5, d: 3, c: 0xff66dd }, { x: -7, y: 12, z: -28, w: 3, h: .5, d: 3, c: 0x66ffaa }, { x: -10, y: 15, z: -17, w: 2.8, h: .5, d: 2.8, c: 0xffff66 }, { x: -4, y: 18, z: -7, w: 3, h: .5, d: 3, c: 0xff9966 }, { x: 4, y: 21, z: -12, w: 5, h: .5, d: 5, c: 0xffffff }],
+    goal: { x: 4, y: 21.25, z: -12 } },
+  { name: "Level 6: Upside-Down Planet", tip: "Gravity pulls upward. Jump away from the ceiling and land on each underside.",
+    spawn: { x: 0, y: 20.5, z: 0 }, rules: { gravity: 9.82, inverted: true, fall: "void", killAbove: 38, killBelow: -15 }, sky: "deep",
+    platforms: [{ x: 0, y: 24, z: 0, w: 10, h: .5, d: 10, c: 0x5566aa }, { x: 0, y: 22, z: -14, w: 6, h: .5, d: 6, c: 0x7755cc }, { x: 6, y: 20, z: -27, w: 5, h: .5, d: 5, c: 0xaa55cc }, { x: -5, y: 18, z: -40, w: 4, h: .5, d: 4, c: 0xcc5577 }, { x: 4, y: 16, z: -54, w: 3.5, h: .5, d: 3.5, c: 0xff8844 }, { x: 0, y: 14, z: -68, w: 7, h: .5, d: 7, c: 0xffffff }],
+    goal: { x: 0, y: 11.75, z: -68 } },
+  { name: "Level 7: Reactor Run", tip: "Tiny pads, alternating sides, no room to drift.",
+    platforms: [{ x: -5, y: 3, z: -14, w: 3, h: .5, d: 3, c: 0xff3344 }, { x: 6, y: 6, z: -29, w: 2.8, h: .5, d: 2.8, c: 0x33ddff }, { x: -7, y: 10, z: -44, w: 2.6, h: .5, d: 2.6, c: 0xffcc33 }, { x: 7, y: 15, z: -60, w: 2.4, h: .5, d: 2.4, c: 0x66ff66 }, { x: -5, y: 21, z: -77, w: 2.2, h: .5, d: 2.2, c: 0xcc66ff }, { x: 5, y: 28, z: -95, w: 2.2, h: .5, d: 2.2, c: 0xff6699 }, { x: 0, y: 35, z: -114, w: 7, h: .5, d: 7, c: 0xffffff }],
+    goal: { x: 0, y: 35.25, z: -114 } }
+];
+
+const TURBO_DEF = {
+  key: "turbo", kind: "turbo", name: "TURBO MODE", sky: "turbo",
+  tip: "Endless stairs up AND down. Turbo Bounce works in mid-air. Reach the white beacon at 1000 m to land on the Moon!",
+  platforms: [{ x: 0, y: 2, z: -12, w: 4, h: .5, d: 4, c: 0x44aa44 }, { x: 5, y: 4, z: -24, w: 6, h: .5, d: 4, c: 0x4444aa }, { x: -5, y: 6, z: -36, w: 2, h: .5, d: 8, c: 0xaa4444 }, { x: 0, y: 8, z: -48, w: 5, h: .5, d: 5, c: 0x88aa00 }, { x: 0, y: 9, z: -60, w: 8, h: 1, d: 8, c: 0x00aaff }],
+  goal: null, theme: { ground: 0x553355 }, rules: { turbo: "air", speed: 18, sprint: 32 }
+};
+
+const MOON_DEF = (() => {
+  const spec = [[6, 6], [14, 6], [26, 5], [40, 5], [56, 4], [74, 4], [94, 3.5], [116, 3.5], [140, 3], [166, 3], [194, 2.5], [224, 5]];
+  let z = 0;
+  const pillars = spec.map(([top, size], k) => {
+    z -= 40 + (k % 3) * 6;
+    return { x: (k % 2 === 0 ? -1 : 1) * (10 + (k % 4) * 3), y: top / 2, z, w: size, h: top, d: size, c: 0x8a8a92 + k * 0x050505, cp: k + 1 };
+  });
+  const rnd = mulberry32(hashSeed("moon-rocks")), rocks = [];
+  while (rocks.length < 14) {
+    const x = (rnd() - 0.5) * 120, zz = -10 - rnd() * 190;
+    if (pillars.some(p => Math.hypot(p.x - x, p.z - zz) < 9) || (Math.abs(x) < 8 && zz > -14)) continue;
+    const w = 2 + rnd() * 3, d = 2 + rnd() * 3, h = 1.2 + rnd() * 2.2, g = 0x70 + Math.floor(rnd() * 0x30);
+    rocks.push({ x, y: h / 2, z: zz, w, h, d, c: (g << 16) | (g << 8) | (g + 6) });
+  }
+  const last = pillars[pillars.length - 1];
+  return {
+    key: "moon", kind: "level", name: "The Moon (VERY HARD)", sky: "moon", returnTo: "turbo", orderedCount: pillars.length,
+    tip: "Slippery low gravity. Touch every pillar in order. One turbo charge (14 s recharge). Oxygen runs out in 6 min; falling costs 30 s.",
+    platforms: pillars.concat(rocks), goal: { x: last.x, y: last.h, z: last.z }, theme: { groundTex: "moon" },
+    rules: { gravity: -3.2, jumpV: 6.5, turboV: 10, turbo: "charges", turboMax: 1, turboRecharge: 14, slip: { g: 0.12, a: 0.035, damp: 0.99 }, oxygen: 360, ordered: true, fall: "checkpoint" }
+  };
+})();
+
+// ---- explorable worlds ----
+const WORLDS = {
+  earth:   { name: "Earth Sandbox",        g: 9.82,  jumpH: 3.26, turboH: 13, theme: { ground: 0x4d8f4d }, sky: "none",
+             desc: "A green plain with classic gravity. The easiest place to start building." },
+  moon:    { name: "Moon Base",            g: 1.62,  jumpH: 6,    turboH: 26, theme: { groundTex: "moon" }, sky: "moon",
+             desc: "Gravity 1.62 m/s². Build under Earth-rise. Jumps last forever." },
+  mars:    { name: "Mars: Olympus Mons",   g: 3.71,  jumpH: 4.5,  turboH: 18, theme: { groundTex: "mars", fog: { color: 0xb0643a, near: 60, far: 900 } }, sky: "mars",
+             desc: "Dusty red haze and a stepped volcano to climb. Gravity 3.71 m/s²." },
+  europa:  { name: "Europa Ice Plains",    g: 1.31,  jumpH: 6,    turboH: 26, theme: { groundTex: "europa" }, sky: "europa",
+             desc: "Cracked ice under a gigantic Jupiter. Gravity 1.31 m/s²." },
+  jupiter: { name: "Jupiter Cloud Station", g: 24.79, jumpH: 1.8,  turboH: 7,  noFloor: true, killBelow: -90, wind: 3,
+             theme: { cloud: true, fog: { color: 0xb07a48, near: 50, far: 700 } }, sky: "jupiter",
+             desc: "A floating station above the storm. Crushing 24.79 m/s² gravity, gusting wind, drifting cloud islands. Don't fall." },
+  station: { name: "Orbital Station",      g: 0.9,   jumpH: 10,   turboH: 36, noFloor: true, killBelow: -160, theme: {}, sky: "station",
+             desc: "A ring station above Earth in near-zero gravity. Float between modules and cargo pods." }
+};
+
+function makeWorldDef(id) {
+  const W = WORLDS[id], rnd = mulberry32(hashSeed("world|" + id)), plats = [];
+  const R = (a, b) => a + rnd() * (b - a);
+  const rules = {
+    gravity: -W.g, jumpV: Math.sqrt(2 * W.g * W.jumpH), turboV: Math.sqrt(2 * W.g * W.turboH), turbo: "air",
+    fall: W.noFloor ? "void" : "none", killBelow: W.killBelow || -40, noFloor: !!W.noFloor, wind: W.wind || 0, windPhase: 1.3
+  };
+  const scatter = (n, minR, maxR, f) => { for (let i = 0; i < n; i++) { const a = rnd() * 6.283, r = R(minR, maxR); f(Math.cos(a) * r, Math.sin(a) * r); } };
+  const grey = () => { const g = 0x70 + Math.floor(rnd() * 0x40); return (g << 16) | (g << 8) | (g + 6); };
+
+  if (id === "earth") {
+    scatter(34, 14, 130, (x, z) => { const h = R(1, 6); plats.push({ x, y: h / 2, z, w: R(6, 18), h, d: R(6, 18), c: hslHex(0.25 + rnd() * 0.08, 0.4, 0.3 + rnd() * 0.1) }); });
+    scatter(6, 30, 110, (x, z) => { const h = R(14, 30); plats.push({ x, y: h / 2, z, w: R(3, 5), h, d: R(3, 5), c: 0x887766 }); });
+  } else if (id === "moon") {
+    scatter(46, 12, 140, (x, z) => { const h = R(1, 5); plats.push({ x, y: h / 2, z, w: R(2, 8), h, d: R(2, 8), c: grey() }); });
+    plats.push({ x: 14, y: 1, z: -12, w: 6, h: 2, d: 6, c: 0xcfcfd8 }, { x: 14, y: 3, z: -12, w: 4, h: 2, d: 4, c: 0xe8e8f0 });
+    plats.push({ x: 24, y: 4, z: -12, w: 0.4, h: 8, d: 0.4, c: 0xdddddd }, { x: 25, y: 7.2, z: -12, w: 1.8, h: 1.1, d: 0.1, c: 0xffcc00 });
+  } else if (id === "mars") {
+    for (let L = 0; L < 10; L++) plats.push({ x: 0, y: L * 3 + 1.5, z: -150, w: 110 - L * 10, h: 3, d: 110 - L * 10, c: hslHex(0.04 + L * 0.004, 0.55, 0.28 + L * 0.02) });
+    plats.push({ x: 0, y: 31, z: -150, w: 0.4, h: 4, d: 0.4, c: 0xdddddd }, { x: 1, y: 32.4, z: -150, w: 1.8, h: 1.1, d: 0.1, c: 0xff4422 });
+    scatter(50, 14, 150, (x, z) => { if (Math.hypot(x, z + 150) < 62) return; const h = R(1, 5); plats.push({ x, y: h / 2, z, w: R(2, 9), h, d: R(2, 9), c: hslHex(0.03 + rnd() * 0.03, 0.5, 0.25 + rnd() * 0.12) }); });
+  } else if (id === "europa") {
+    scatter(24, 16, 150, (x, z) => { const h = R(5, 14), flip = rnd() < 0.5, L = R(14, 40), T = R(1.6, 3); plats.push({ x, y: h / 2, z, w: flip ? L : T, h, d: flip ? T : L, c: hslHex(0.55, 0.35, 0.7 + rnd() * 0.2) }); });
+    scatter(18, 12, 120, (x, z) => { const h = R(1, 4); plats.push({ x, y: h / 2, z, w: R(4, 10), h, d: R(4, 10), c: hslHex(0.55, 0.3, 0.8) }); });
+  } else if (id === "jupiter") {
+    plats.push({ x: 0, y: -1, z: 0, w: 90, h: 2, d: 90, c: 0x8a7a68 });
+    plats.push({ x: -28, y: 5, z: -28, w: 14, h: 10, d: 14, c: 0xbbbbcc }, { x: -28, y: 18, z: -28, w: 1, h: 16, d: 1, c: 0xdddddd });
+    plats.push({ x: 0, y: 0.05, z: 0, w: 16, h: 0.1, d: 16, c: 0xffd54a });
+    // three chains of cloud islands radiating from the deck edge
+    [0.6, 2.7, 4.6].forEach(a0 => {
+      let x = Math.cos(a0) * 48, z = Math.sin(a0) * 48, y = 0.5;
+      for (let i = 0; i < 9; i++) {
+        const a = a0 + (rnd() - 0.5) * 0.5, d = R(7, 9.5);
+        x += Math.cos(a) * d; z += Math.sin(a) * d; y = Math.max(0.5, y + R(-0.6, 1.2));
+        plats.push({ x, y, z, w: R(4, 6.5), h: 0.6, d: R(4, 6.5), c: hslHex(0.07 + rnd() * 0.05, 0.5, 0.6) });
+      }
+      plats.push({ x: x + Math.cos(a0) * 9, y: y + 1, z: z + Math.sin(a0) * 9, w: 10, h: 1, d: 10, c: 0xffffff });
+    });
+  } else if (id === "station") {
+    plats.push({ x: 0, y: -1, z: 0, w: 24, h: 2, d: 24, c: 0xb8bcc8 });
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([sx, sz]) => {
+      plats.push({ x: sx * 37, y: -1, z: sz * 37, w: sx ? 50 : 6, h: 2, d: sz ? 50 : 6, c: 0x9fa4b4 });
+      plats.push({ x: sx * 70, y: -1, z: sz * 70, w: 14, h: 2, d: 14, c: 0xc8ccd8 });
+      plats.push({ x: sx * 70, y: 12, z: sz * 70, w: sx ? 1 : 30, h: 20, d: sz ? 1 : 30, c: 0x335588 });
+    });
+    for (let i = 0; i < 20; i++) { const a = rnd() * 6.283, r = R(40, 130); plats.push({ x: Math.cos(a) * r, y: R(-10, 40), z: Math.sin(a) * r, w: 6, h: 4, d: 4, c: hslHex(rnd(), 0.4, 0.5) }); }
+  }
+  return {
+    key: "w:" + id, kind: "world", worldId: id, name: W.name, tip: W.desc + "  B = build mode.",
+    platforms: plats, goal: null, noStart: true, spawn: { x: 0, y: W.noFloor ? 2 : 2.5, z: 0 }, rules, theme: W.theme, sky: W.sky
+  };
+}
+
+// =====================================================================
+//  LOADING LEVELS
+// =====================================================================
+const GROUND_FOG = null;
+function applyTheme(t) {
+  t = t || {};
+  const tex = t.groundTex ? groundTexMap[t.groundTex] : null;
+  groundMaterialMesh.map = tex; groundMaterialMesh.needsUpdate = true;
+  groundMaterialMesh.color.set(tex ? 0xffffff : (t.ground != null ? t.ground : 0x999999));
+  scene.fog = t.fog ? new THREE.Fog(t.fog.color, t.fog.near, t.fog.far) : GROUND_FOG;
+  cloudMesh.visible = !!t.cloud;
+}
+
+function spawnPoint() { return (cur && cur.spawn) || { x: 0, y: 3, z: 0 }; }
+function respawn(pos) {
+  playerBody.position.set(pos.x, pos.y, pos.z);
+  playerBody.velocity.set(0, 0, 0); playerBody.angularVelocity.set(0, 0, 0);
+  playerBody.quaternion.set(0, 0, 0, 1);
+  canJump = false;
+}
+
+function loadDef(def) {
+  clearLevel();
+  cur = def;
+  rules = Object.assign(defaultRules(), def.rules || {});
+  world.gravity.set(0, rules.gravity, 0);
+  setGround(!rules.noFloor);
+  applyTheme(def.theme);
+  if (!def.noStart) createPlatform(START);
+  def.platforms.forEach(createPlatform);
+  if (def.kind === "turbo") updateStairs(3);
+  if (def.goal) {
+    goalMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 4, 24, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xffd54a, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+    goalMesh.position.set(def.goal.x, def.goal.y + 2, def.goal.z);
+    scene.add(goalMesh);
+  }
+  spaceBodies.forEach(b => { b.shown = false; });
+  levelTime = 0; bestHeight = 0; oxygen = rules.oxygen; transitioning = false;
+  checkpoint = { idx: 0, x: 0, y: 1, z: 0 }; lastSafe = null;
+  turboCharges = rules.turboMax; turboRegen = 0; turboCooldown = 0;
+  setBuildMode(false);
+  respawn(spawnPoint());
+  camYaw = 0; fpPitch = 0;
+  started = true; updateOverlay();
+  $("codeBadge").innerHTML = def.code ? "Code <b>" + def.code + "</b>" : (def.campaign ? "Campaign level " + def.campaign : "");
+  showBanner(def.name, def.tip, 4500);
+  if (def.kind === "world") { save.lastWorld = def.worldId; saveSoon(); loadWorldBlocks(def.worldId); }
+}
+
+function campaignCode(i) {
+  const types = [0, 2, 1, 3, 4, 7, 5, 8, 6, 9], k = i - 8;
+  const type = types[k % 10], diff = clamp(1 + Math.floor((i - 1) / 10), 1, 10);
+  return "" + type + (diff - 1) + (5000 + i * 173);
+}
+function campaignInfo(i) {
+  if (i <= 7) return { type: -1, short: "Classic", name: HAND[i - 1].name };
+  const code = campaignCode(i), d = decodeCode(code);
+  return { type: d.type, short: TYPE_INFO[d.type].name, code: d.canonical, diff: d.diff, name: "Level " + i + ": " + TYPE_INFO[d.type].name };
+}
+function loadCampaign(i) {
+  let def;
+  if (i <= 7) def = HAND[i - 1];
+  else { def = buildLevel(campaignCode(i)); def.name = "Level " + i + ": " + TYPE_INFO[def.info.type].name; }
+  def.key = "c:" + i; def.campaign = i;
+  loadDef(def);
+}
+function loadCode(raw) {
+  const def = buildLevel(raw);
+  if (!def) { toast("Enter some digits first"); return false; }
+  loadDef(def);
+  save.recent = [{ code: def.code, t: Date.now() }].concat(save.recent.filter(r => r.code !== def.code)).slice(0, 12);
+  saveSoon();
+  return true;
+}
+function loadSpecial(which) { loadDef(which === "moon" ? MOON_DEF : TURBO_DEF); }
+function loadWorld(id) { loadDef(makeWorldDef(id)); }
+function restartLevel() {
+  if (!cur) return;
+  if (cur.kind === "world") respawn(spawnPoint()); else loadDef(cur);
+}
+
+function completeLevel() {
+  const def = cur; transitioning = true;
+  const t = levelTime, prev = save.bestTime[def.key], isBest = prev === undefined || t < prev;
+  if (isBest) save.bestTime[def.key] = t;
+  save.completed[def.key] = 1; saveSoon();
+  showBanner(def.returnTo ? "Flag planted!" : "Level Complete!", fmt(t) + (isBest ? "  -  NEW BEST" : ""), 2500);
+  setTimeout(() => {
+    if (cur !== def) return;
+    if (def.campaign && def.campaign < 100) loadCampaign(def.campaign + 1);
+    else if (def.returnTo === "turbo") loadSpecial("turbo");
+    else { transitioning = false; openMenu(def.campaign ? "campaign" : "codes"); toast(def.campaign ? "Campaign complete!" : "Nice! Try another code."); }
+  }, 2600);
+}
+
+// =====================================================================
+//  INPUT, MOVEMENT, CAMERA
+// =====================================================================
+const keys = { w: false, a: false, s: false, d: false, shift: false };
+function tryJump(withShift) {
+  const r = rules, sg = r.gravity > 0 ? -1 : 1;
+  if (withShift && r.turbo !== "none") {
+    if (r.turbo === "air") { if (turboCooldown <= 0) { playerBody.velocity.y = sg * r.turboV; turboCooldown = 0.8; canJump = false; fovKick = 25; } }
+    else if (r.turbo === "charges") { if (turboCharges > 0 && turboCooldown <= 0) { playerBody.velocity.y = sg * r.turboV; turboCharges--; turboCooldown = 0.4; canJump = false; fovKick = 25; } }
+    else if (canJump) { playerBody.velocity.y = sg * r.turboV; canJump = false; fovKick = 25; }
+    return;
+  }
+  if (canJump) { playerBody.velocity.y = sg * r.jumpV; canJump = false; }
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.target && e.target.tagName === "INPUT") return;
+  if (e.code === "KeyL" && e.ctrlKey && e.shiftKey) { e.preventDefault(); openMenu(); return; }
+  if (menuOpen) { if (e.code === "Escape" || e.code === "KeyM") { if (started) closeMenu(false); } return; }
+  if (e.code === "KeyM") { openMenu(); return; }
+  if (e.code === "KeyW") keys.w = true;
+  if (e.code === "KeyA") keys.a = true;
+  if (e.code === "KeyS") keys.s = true;
+  if (e.code === "KeyD") keys.d = true;
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") keys.shift = true;
+  if (e.code === "Space") { e.preventDefault(); if (!e.repeat) tryJump(e.shiftKey || keys.shift); }
+  if (e.code === "KeyV") { isFirstPerson = !isFirstPerson; playerMesh.visible = !isFirstPerson; }
+  if (e.code === "KeyR") restartLevel();
+  if (e.code === "KeyB") setBuildMode(!buildMode);
+  if (buildMode && e.code.startsWith("Digit")) { const n = +e.code.slice(5); if (n >= 1 && n <= 9) selectBlock(n - 1); }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.code === "KeyW") keys.w = false;
+  if (e.code === "KeyA") keys.a = false;
+  if (e.code === "KeyS") keys.s = false;
+  if (e.code === "KeyD") keys.d = false;
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") keys.shift = false;
+});
+window.addEventListener("blur", () => { keys.w = keys.a = keys.s = keys.d = keys.shift = false; });
+
+const fwdV = new THREE.Vector3(), rightV = new THREE.Vector3(), dirV = new THREE.Vector3();
+function applyPlayerMovement(dt) {
+  const r = rules, force = keys.shift ? r.sprint : r.speed;
+  fwdV.set(-Math.sin(camYaw), 0, -Math.cos(camYaw));
+  rightV.set(Math.cos(camYaw), 0, -Math.sin(camYaw));
+  dirV.set(0, 0, 0);
+  if (keys.w) dirV.add(fwdV); if (keys.s) dirV.sub(fwdV);
+  if (keys.a) dirV.sub(rightV); if (keys.d) dirV.add(rightV);
+  const v = playerBody.velocity, s = r.slip;
+  if (dirV.lengthSq() > 0) {
+    dirV.normalize();
+    if (s) { const k = canJump ? s.g : s.a; v.x += (dirV.x * force - v.x) * k; v.z += (dirV.z * force - v.z) * k; }
+    else { v.x = dirV.x * force; v.z = dirV.z * force; }
+  } else { const d = s ? s.damp : 0.9; v.x *= d; v.z *= d; }
+  if (r.wind) {
+    v.x += r.wind * Math.sin(levelTime * 0.35 + r.windPhase) * dt;
+    v.z += r.wind * 0.6 * Math.sin(levelTime * 0.23 + r.windPhase * 1.7) * dt;
+  }
+}
+
+const sunOff = new THREE.Vector3(50, 100, 50);
+const lookTarget = new THREE.Vector3(), headOff = new THREE.Vector3(0, 0.8, 0), chestOff = new THREE.Vector3(0, 1, 0);
+function updateCamera(dt) {
+  fovKick = Math.max(0, fovKick - dt * 60);
+  camera.fov += ((BASE_FOV + (keys.shift ? 8 : 0) + fovKick) - camera.fov) * Math.min(1, dt * 10);
+  camera.updateProjectionMatrix();
+  if (isFirstPerson) {
+    camera.position.copy(playerMesh.position).add(headOff);
+    camera.rotation.set(fpPitch, camYaw, 0, "YXZ");
+  } else {
+    lookTarget.copy(playerMesh.position).add(chestOff);
+    const cp = Math.cos(tpPitch);
+    camera.position.set(lookTarget.x + Math.sin(camYaw) * cp * tpDistance, lookTarget.y + Math.sin(tpPitch) * tpDistance, lookTarget.z + Math.cos(camYaw) * cp * tpDistance);
+    camera.lookAt(lookTarget);
+  }
+}
+
+// =====================================================================
+//  HUD, GOALS, FALLING
+// =====================================================================
+const hudLevel = $("hudLevel"), hudInfo = $("hudInfo"), hudTurbo = $("hudTurbo");
+function updateHud() {
+  const r = rules, h = Math.max(0, playerBody.position.y - 1).toFixed(0);
+  hudLevel.textContent = cur.name;
+  let info = "", turbo = "", col = "#6ff";
+  if (cur.kind === "world") {
+    info = "Gravity " + Math.abs(r.gravity).toFixed(2) + " m/s2  |  Blocks " + blocks.size + "  |  " + (buildMode ? "BUILD MODE: [LMB] place  [RMB] remove  [1-9] block  [B] exit" : "[B] build mode");
+    turbo = turboCooldown > 0 ? "TURBO recharging..." : "TURBO READY (Shift + Space)"; if (turboCooldown > 0) col = "#ff8";
+  } else if (r.ordered) {
+    const total = cur.orderedCount || 0;
+    info = "Height " + h + " m  |  Pillar " + checkpoint.idx + "/" + total + "  |  Oxygen " + Math.max(0, Math.ceil(oxygen)) + " s";
+    turbo = "TURBO: " + "\u25CF ".repeat(turboCharges) + "\u25CB ".repeat(r.turboMax - turboCharges) + (turboCharges < r.turboMax ? " (recharging)" : " (full)");
+    col = turboCharges > 0 ? "#6ff" : "#f88";
+  } else if (cur.kind === "turbo") {
+    const next = spaceBodies.find(b => !b.shown);
+    info = "Height " + h + " m  |  Best " + bestHeight.toFixed(0) + " m" + (next ? "  |  Next: " + next.label + " at " + next.alt + " m" : "");
+    turbo = turboCooldown > 0 ? "TURBO recharging..." : "TURBO READY (Shift + Space)"; if (turboCooldown > 0) col = "#ff8";
+  } else {
+    info = "Time " + fmt(levelTime) + "  |  Height " + h + " m" + (r.inverted ? "  |  INVERTED GRAVITY" : "") + (r.wind ? "  |  STORM WINDS" : "") + (cur.mazeInfo ? "  |  Maze " + cur.mazeInfo.n + "x" + cur.mazeInfo.n : "");
+    if (r.turbo === "none") { turbo = "No turbo in the maze"; col = "#999"; }
+    else { turbo = canJump ? "TURBO READY (Shift + Space)" : "TURBO: need to be grounded"; col = canJump ? "#6ff" : "#999"; }
+  }
+  hudInfo.textContent = info; hudTurbo.textContent = turbo; hudTurbo.style.color = col;
+}
+
+function checkGoal() {
+  if (!goalMesh || transitioning) return;
+  const g = goalMesh.position, p = playerBody.position;
+  if (Math.hypot(p.x - g.x, p.z - g.z) < 2.2 && Math.abs(p.y - g.y) < 3.5) {
+    if (rules.ordered && checkpoint.idx < (cur.orderedCount || 0)) {
+      if (performance.now() > warnUntil) { warnUntil = performance.now() + 1800; showBanner("Route incomplete", "Touch every pillar in order. Next: " + (checkpoint.idx + 1), 1600); }
+      return;
+    }
+    completeLevel();
+  }
+}
+function checkPortal() {
+  if (!portalMesh || transitioning || cur.kind !== "turbo") return;
+  const g = portalMesh.position, p = playerBody.position;
+  if (Math.hypot(p.x - g.x, p.z - g.z) < 2.4 && Math.abs(p.y - g.y) < 4) {
+    transitioning = true; showBanner("Touchdown!", "Landing on the Moon...", 2600);
+    setTimeout(() => { if (cur && cur.kind === "turbo") loadSpecial("moon"); }, 2600);
+  }
+}
+function checkFell() {
+  if (transitioning) return;
+  const p = playerBody.position, r = rules;
+  let lost = false;
+  if (r.fall === "floor" || r.fall === "checkpoint") lost = Math.max(Math.abs(p.x), Math.abs(p.z)) > 5.5 && p.y < 1.4;
+  else if (r.fall === "void") lost = p.y < r.killBelow || p.y > r.killAbove;
+  if (!lost) return;
+  if (r.fall === "checkpoint") {
+    oxygen = Math.max(0, oxygen - 30);
+    showBanner("You fell!", "-30 s oxygen. Back to pillar " + checkpoint.idx, 1800);
+    respawn({ x: checkpoint.x, y: checkpoint.y + 2.5, z: checkpoint.z });
+  } else if (cur.kind === "world") {
+    showBanner("Lost in the void!", "Back to the landing area.", 1600); respawn(spawnPoint());
+  } else {
+    levelTime += 3; showBanner("You fell!", "+3 s penalty. Back to your last platform.", 1400); respawn(lastSafe || spawnPoint());
+  }
+}
+
+// =====================================================================
+//  MENU
+// =====================================================================
+const tabsEl = $("tabs"), bodyEl = $("menuBody"), footEl = $("menuFoot");
+let currentTab = "campaign";
+const typeColor = t => t < 0 ? "#8899bb" : "#" + hslHex(t / 10, 0.65, 0.6).toString(16).padStart(6, "0");
+function openMenu(tab) {
+  menuOpen = true; menuEl.style.display = "flex";
+  if (document.pointerLockElement) document.exitPointerLock();
+  keys.w = keys.a = keys.s = keys.d = keys.shift = false;
+  renderMenu(tab); updateOverlay();
+}
+function closeMenu(lock) {
+  menuOpen = false; menuEl.style.display = "none";
+  if (lock) lockPointer();
+  updateOverlay();
+}
+$("mclose").onclick = () => { if (started) closeMenu(true); else toast("Pick a level first"); };
+
+function renderMenu(tab) {
+  if (tab) currentTab = tab;
+  tabsEl.innerHTML = "";
+  [["campaign", "Campaign"], ["codes", "Level Codes"], ["worlds", "Explore & Build"], ["special", "Special & Settings"]].forEach(([id, label]) => {
+    const b = el("button", "tab" + (id === currentTab ? " on" : ""), label); b.onclick = () => renderMenu(id); tabsEl.appendChild(b);
+  });
+  bodyEl.innerHTML = "";
+  ({ campaign: renderCampaign, codes: renderCodes, worlds: renderWorlds, special: renderSpecial })[currentTab](bodyEl);
+  const done = Object.keys(save.completed).length;
+  footEl.textContent = (DB.isPersistent() ? "Progress and builds are saved in your browser (IndexedDB)." : "IndexedDB unavailable: progress will not persist after closing this tab.") +
+    "   Levels completed: " + done + "   |   M = menu, Esc = release mouse";
+}
+
+function renderCampaign(root) {
+  const done = Object.keys(save.completed).filter(k => k.startsWith("c:")).length;
+  root.appendChild(el("p", "hint", "Levels 1-7 are hand-made. Levels 8-100 are generated from codes (they climb from difficulty 1 to 10), so every one has a code you can replay or share. Completed: <b>" + done + " / 100</b>"));
+  const grid = el("div", "lgrid");
+  for (let i = 1; i <= 100; i++) {
+    const info = campaignInfo(i), best = save.bestTime["c:" + i];
+    const b = el("button", "lbtn" + (save.completed["c:" + i] ? " done" : ""), "<span>" + i + "</span><small>" + info.short + "</small>");
+    b.style.borderColor = typeColor(info.type);
+    b.title = info.name + (info.code ? "  (code " + info.code + ")" : "") + (best !== undefined ? "  best " + fmt(best) : "");
+    b.onclick = () => { loadCampaign(i); closeMenu(true); };
+    grid.appendChild(b);
+  }
+  root.appendChild(grid);
+}
+
+function randomCode() {
+  const type = Math.floor(Math.random() * 10), diff = Math.floor(Math.random() * 10);
+  return "" + type + diff + (10000 + Math.floor(Math.random() * 989999));
+}
+function dailyCode() {
+  const d = new Date(), ymd = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  return "" + (ymd % 10) + ((d.getDate() % 7) + 2) + ymd;
+}
+function renderCodes(root) {
+  root.appendChild(el("p", "hint", "<b>Same code = same level, every time.</b> Format: <b>first digit = type</b> (0-9), <b>second digit = difficulty</b> (0 easiest, 9 insane), <b>the rest = seed</b>. Example: <b>4-5-83712</b> is a Maze, difficulty 6, seed 83712. Dashes are optional."));
+  const input = el("input"); input.type = "text"; input.placeholder = "e.g. 4 5 83712"; input.id = "codeIn";
+  const preview = el("div", "preview");
+  const row = el("div", "row");
+  const update = () => {
+    const d = decodeCode(input.value);
+    if (!d) { preview.innerHTML = "Type digits, or press Random / Daily."; return; }
+    const best = save.bestTime["k:" + d.canonical];
+    preview.innerHTML = "<b style='color:" + typeColor(d.type) + "'>" + TYPE_INFO[d.type].name + "</b> &middot; difficulty " + d.diff + "/10 &middot; seed " + d.seedStr +
+      "<br><span style='opacity:.75'>" + TYPE_INFO[d.type].tip + "</span>" + (best !== undefined ? "<br>Your best: <b>" + fmt(best) + "</b>" : "");
+  };
+  input.oninput = update;
+  input.onkeydown = e => { if (e.key === "Enter") play.click(); };
+  const play = el("button", "btn gold", "Play code");
+  play.onclick = () => { if (loadCode(input.value)) closeMenu(true); };
+  const rnd = el("button", "btn", "Random"); rnd.onclick = () => { input.value = randomCode(); update(); };
+  const daily = el("button", "btn", "Daily"); daily.onclick = () => { input.value = dailyCode(); update(); };
+  row.append(input, play, rnd, daily);
+  root.append(row, preview);
+  update();
+
+  if (save.recent.length) {
+    root.appendChild(el("p", "hint", "<b>Recent codes</b>"));
+    const rr = el("div", "row");
+    save.recent.forEach(r => {
+      const d = decodeCode(r.code), best = save.bestTime["k:" + r.code];
+      const b = el("button", "btn", r.code + " " + TYPE_INFO[d.type].name + (best !== undefined ? " (" + fmt(best) + ")" : ""));
+      b.style.borderColor = typeColor(d.type);
+      b.onclick = () => { input.value = r.code; update(); };
+      rr.appendChild(b);
+    });
+    root.appendChild(rr);
+  }
+
+  root.appendChild(el("p", "hint", "<b>The 10 types</b> (first digit)"));
+  const tbl = el("table", "types");
+  TYPE_INFO.forEach((t, i) => {
+    const tr = el("tr", "", "<td style='color:" + typeColor(i) + ";font-weight:700;width:34px'>" + i + "</td><td style='width:130px'>" + t.name + "</td><td>" + t.tip + "</td>");
+    const td = el("td"); const b = el("button", "btn", "Try " + i + "-4-" + (1000 + i * 111));
+    b.onclick = () => { input.value = "" + i + "4" + (1000 + i * 111); update(); };
+    td.appendChild(b); tr.appendChild(td); tbl.appendChild(tr);
+  });
+  root.appendChild(tbl);
+}
+
+function renderWorlds(root) {
+  root.appendChild(el("p", "hint", "Free exploration. Land on a world, fly around with turbo bounces, and <b>build with blocks</b> (press <b>B</b>). Everything you build is saved in IndexedDB, per world, and is waiting for you next time."));
+  const cards = el("div", "cards");
+  Object.keys(WORLDS).forEach(id => {
+    const W = WORLDS[id], c = el("div", "card");
+    c.innerHTML = "<h3>" + W.name + "</h3><p>" + W.desc + "</p><p style='opacity:.6'>Gravity " + W.g + " m/s2</p>";
+    const count = el("p", "", "Saved blocks: ...");
+    DB.get("worlds", "w:" + id).then(d => { count.textContent = "Saved blocks: " + (d && d.blocks ? d.blocks.length : 0); });
+    const row = el("div", "row");
+    const go = el("button", "btn gold", "Launch"); go.onclick = () => { loadWorld(id); closeMenu(true); };
+    const wipe = el("button", "btn red", "Wipe builds");
+    wipe.onclick = () => {
+      if (!confirm("Delete everything you built on " + W.name + "?")) return;
+      DB.del("worlds", "w:" + id).then(() => { count.textContent = "Saved blocks: 0"; toast("Wiped " + W.name); });
+      if (cur && cur.worldId === id) { clearBlocks(); blocksDirty = false; }
+    };
+    row.append(go, wipe); c.append(count, row); cards.appendChild(c);
+  });
+  root.appendChild(cards);
+}
+
+function renderSpecial(root) {
+  root.appendChild(el("p", "hint", "Special modes from the original game."));
+  const cards = el("div", "cards");
+  const mk = (title, text, label, fn) => {
+    const c = el("div", "card", "<h3>" + title + "</h3><p>" + text + "</p>");
+    const b = el("button", "btn gold", label); b.onclick = fn; c.appendChild(b); cards.appendChild(c);
+  };
+  const tb = save.bestTime["turbo"], mb = save.bestTime["moon"];
+  mk("TURBO MODE", "Endless stairs up and down. Reach the beacon at 1000 m to land on the Moon." + (tb !== undefined ? "" : ""), "Play", () => { loadSpecial("turbo"); closeMenu(true); });
+  mk("The Moon (VERY HARD)", "Slippery low gravity, 12 pillars in order, one turbo charge, oxygen." + (mb !== undefined ? " Best: " + fmt(mb) : ""), "Play", () => { loadSpecial("moon"); closeMenu(true); });
+  root.appendChild(cards);
+
+  root.appendChild(el("p", "hint", "<br><b>Mouse sensitivity</b>"));
+  const sl = el("input"); sl.type = "range"; sl.min = "0.001"; sl.max = "0.006"; sl.step = "0.0001"; sl.value = String(sens);
+  sl.oninput = () => { sens = +sl.value; save.sens = sens; saveSoon(); };
+  root.appendChild(sl);
+
+  const row = el("div", "row");
+  const reset = el("button", "btn red", "Reset progress and best times");
+  reset.onclick = () => { if (confirm("Reset all completed levels, best times and recent codes? (Builds are kept.)")) { save.completed = {}; save.bestTime = {}; save.recent = []; saveSoon(); renderMenu(); toast("Progress reset"); } };
+  row.appendChild(reset); root.appendChild(row);
+}
+
+// =====================================================================
+//  MAIN LOOP
+// =====================================================================
+const FIXED = 1 / 60;
+let accumulator = 0, lastTime = performance.now() / 1000, blockTick = 0, buildTick = 0;
+
+function animate(time) {
+  requestAnimationFrame(animate);
+  const now = time / 1000;
+  const dt = Math.min(now - lastTime, 0.1); lastTime = now;
+  if (!cur) { renderer.render(scene, camera); return; }
+
+  if (!menuOpen) {
+    accumulator += dt;
+    while (accumulator >= FIXED) { applyPlayerMovement(FIXED); world.step(FIXED); accumulator -= FIXED; }
+    if (!transitioning) levelTime += dt;
+    if (turboCooldown > 0) turboCooldown = Math.max(0, turboCooldown - dt);
+    if (rules.turbo === "charges" && turboCharges < rules.turboMax) {
+      turboRegen += dt; if (turboRegen >= rules.turboRecharge) { turboCharges++; turboRegen = 0; }
+    }
+    if (rules.oxygen > 0 && !transitioning) {
+      oxygen -= dt;
+      if (oxygen <= 0) { transitioning = true; showBanner("OUT OF OXYGEN", "Restarting...", 2200); const d0 = cur; setTimeout(() => { if (cur === d0) loadDef(d0); }, 2200); }
+    }
+  }
+
+  playerMesh.position.copy(playerBody.position);
+  playerMesh.quaternion.copy(playerBody.quaternion);
+  playerMat.emissive.setHex(keys.shift ? 0x006622 : 0x000000);
+  bestHeight = Math.max(bestHeight, playerBody.position.y - 1);
+
+  if (!menuOpen) {
+    if (cur.kind === "turbo") updateStairs(playerBody.position.y);
+    if (cur.kind === "world") {
+      blockTick -= dt; if (blockTick <= 0) { blockTick = 0.25; refreshBlockBodies(); }
+      buildTick -= dt; if (buildTick <= 0) { buildTick = 0.05; updateBuildTarget(); }
+    }
+    checkGoal(); checkPortal(); checkFell();
+  }
+
+  if (goalMesh) { goalMesh.rotation.y += dt * 1.5; goalMesh.material.opacity = 0.45 + Math.sin(now * 4) * 0.15; }
+  if (portalMesh) { portalMesh.rotation.y += dt * 1.5; portalMesh.material.opacity = 0.45 + Math.sin(now * 4) * 0.15; }
+
+  updateCamera(dt);
+  // the sky, sunlight, stars and ground follow the player so they work at any distance
+  if (skyMesh) skyMesh.position.copy(camera.position);
+  dirLight.position.copy(playerMesh.position).add(sunOff);
+  dirLight.target.position.copy(playerMesh.position);
+  groundMesh.position.x = Math.round(playerBody.position.x / 12.5) * 12.5;
+  groundMesh.position.z = Math.round(playerBody.position.z / 12.5) * 12.5;
+  updateSky(dt);
+  updateHud();
+  renderer.render(scene, camera);
+}
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+(async function boot() {
+  await DB.open();
+  const s = await DB.get("kv", "save");
+  if (s) Object.assign(save, s);
+  sens = save.sens || sens;
+  loadCampaign(1);              // loaded behind the menu so the scene is visible
+  started = false; updateOverlay();
+  openMenu("campaign");
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
