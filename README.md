@@ -8,7 +8,7 @@ Parkour Universe is a browser-based 3D parkour game built around physics-based m
 
 🎮 **[PLAY PARKOUR UNIVERSE](https://parkuniverse.netlify.app/)**
 
-![Parkour Universe banner or gameplay screenshot](screenshots/gameplay-main.png)
+![Parkour Universe banner or gameplay screenshot](screenshots/main.png)
 
 > **No installation required:** Play directly in your browser.
 
