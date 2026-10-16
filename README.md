@@ -16,17 +16,22 @@ Parkour Universe is a browser-based 3D parkour game built around physics-based m
 
 ## 📸 Screenshots
 
-*Add your own screenshots to the `screenshots/` folder in this repository, then replace these image paths with your filenames.*
+## Screenshots
 
-| Main Menu | Parkour Gameplay |
-|---|---|
-| ![Main menu screenshot](screenshots/main-menu.png) | ![Gameplay screenshot](screenshots/gameplay.png) |
-| *Explore the game's menus and modes.* | *Jump between platforms and master your movement.* |
+### Gameplay
+![Parkour Universe gameplay](screenshots/gameplay-main.png)
 
-| Special Worlds | Build Mode |
-|---|---|
-| ![World screenshot](screenshots/worlds.png) | ![Build mode screenshot](screenshots/build-mode.png) |
-| *Experience different gravity and environmental challenges.* | *Place and break blocks in supported worlds.* |
+### Main Menu
+![Parkour Universe main menu](screenshots/main-menu.png)
+
+### Challenging Level
+![A challenging parkour level](screenshots/challenging-level.png)
+
+### Worlds
+![Parkour Universe worlds](screenshots/worlds.png)
+
+### Build Mode
+![Parkour Universe Build Mode](screenshots/build-mode.png)
 
 ---
 
